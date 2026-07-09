@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VLESS 转换为 Clash YAML 工具 (纯本地运行)</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 0 20px;
+            background-color: #f5f5f7;
+            color: #333;
+        }
+        h2 { color: #1d1d1f; }
+        .card {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+        }
+        textarea {
+            width: 100%;
+            height: 80px;
+            padding: 12px;
+            box-sizing: border-box;
+            border: 1px solid #d2d2d7;
+            border-radius: 8px;
+            font-size: 14px;
+            resize: vertical;
+        }
+        button {
+            background-color: #0071e3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 12px;
+        }
+        button:hover { background-color: #0077ed; }
+        pre {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 16px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        .error { color: #ff3b30; font-weight: bold; margin-top: 10px; }
+        .hint { font-size: 12px; color: #86868b; margin-top: 4px; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>VLESS 转换为 Clash YAML 配置</h2>
+    <p class="hint">🔒 本工具完全由本地 JavaScript 运行，无任何网络请求，确保节点安全。</p>
+    <textarea id="inputUrl" placeholder="请粘贴形如 vless://... 的链接"></textarea>
+    <button onclick="convertUrl()">转换为 YAML</button>
+    <div id="errorMsg" class="error"></div>
+</div>
+
+<div class="card">
+    <h3>输出内容 (可直接复制进 proxies 列表中)</h3>
+    <pre id="outputYaml">暂无数据</pre>
+</div>
+
+<script>
+function convertUrl() {
+    const errorDiv = document.getElementById('errorMsg');
+    const outputPre = document.getElementById('outputYaml');
+    errorDiv.innerText = '';
+    outputPre.innerText = '暂无数据';
+
+    const urlStr = document.getElementById('inputUrl').value.trim();
+    if (!urlStr) {
+        errorDiv.innerText = '请输入有效的 VLESS 链接';
+        return;
+    }
+
+    try {
+        // 1. 解析 VLESS 基本结构
+        if (!urlStr.startsWith('vless://')) {
+            throw new Error('不合法的 VLESS 链接格式');
+        }
+
+        // 分离别名
+        const parts = urlStr.replace('vless://', '').split('#');
+        const mainPart = parts[0];
+        const rawRemark = parts[1] || 'VLESS-Imported';
+        const remark = decodeURIComponent(rawRemark);
+
+        // 分离用户凭证和网络地址
+        const atIndex = mainPart.lastIndexOf('@');
+        if (atIndex === -1) throw new Error('找不到 @ 符号，无法解析 UUID');
+
+        const uuid = mainPart.substring(0, atIndex);
+        const remain = mainPart.substring(atIndex + 1);
+
+        // 分离服务器端口与查询参数
+        const queryIndex = remain.indexOf('?');
+        if (queryIndex === -1) throw new Error('未发现核心配置参数');
+
+        const serverPortPart = remain.substring(0, queryIndex);
+        const queryPart = remain.substring(queryIndex + 1);
+
+        const [server, port] = serverPortPart.split(':');
+        if (!server || !port) throw new Error('解析服务器 IP/域名 或端口失败');
+
+        // 2. 解析 Query 参数
+        const params = new URLSearchParams(queryPart);
+        
+        const network = params.get('type') || 'tcp';
+        const security = params.get('security') || 'none';
+        const flow = params.get('flow');
+        const sni = params.get('sni') || params.get('host');
+        const pbk = params.get('pbk');
+        
+        // 自动去噪：优先使用合法的 sid，没有则放弃异常的 spx
+        let shortId = params.get('sid');
+        if (!shortId && params.get('spx')) {
+            const rawSpx = decodeURIComponent(params.get('spx'));
+            // 验证是否符合十六进制规范
+            if (/^[0-9a-fA-F]+$/.test(rawSpx)) {
+                shortId = rawSpx;
+            }
+        }
+
+        // 3. 构建 YAML 节点
+        let yaml = `  - name: "${remark}"\n`;
+        yaml += `    type: vless\n`;
+        yaml += `    server: ${server}\n`;
+        yaml += `    port: ${parseInt(port)}\n`;
+        yaml += `    uuid: ${uuid}\n`;
+        yaml += `    udp: true\n`;
+
+        if (security === 'tls' || security === 'reality') {
+            yaml += `    tls: true\n`;
+        }
+        if (sni) {
+            yaml += `    servername: ${sni}\n`;
+        }
+        if (flow && flow !== 'none') {
+            yaml += `    flow: ${flow}\n`;
+        }
+        if (network) {
+            yaml += `    network: ${network}\n`;
+        }
+
+        // 针对 WebSocket 的特殊配置
+        if (network === 'ws') {
+            const path = params.get('path') ? decodeURIComponent(params.get('path')) : '/';
+            yaml += `    ws-opts:\n`;
+            yaml += `      path: "${path}"\n`;
+            if (sni) {
+                yaml += `      headers:\n`;
+                yaml += `        Host: ${sni}\n`;
+            }
+        }
+
+        // 针对 gRPC 的特殊配置
+        if (network === 'grpc') {
+            const serviceName = params.get('serviceName') || '';
+            yaml += `    grpc-opts:\n`;
+            yaml += `      grpc-service-name: "${serviceName}"\n`;
+        }
+
+        // 针对 REALITY 的配置和智能去噪
+        if (security === 'reality') {
+            yaml += `    reality-opts:\n`;
+            if (pbk) yaml += `      public-key: ${pbk}\n`;
+            if (shortId) yaml += `      short-id: "${shortId}"\n`;
+            
+            const fp = params.get('fp') || 'chrome';
+            yaml += `    client-fingerprint: ${fp}\n`;
+        }
+
+        outputPre.innerText = yaml;
+
+    } catch (e) {
+        errorDiv.innerText = '解析错误: ' + e.message;
+    }
+}
+</script>
+
+</body>
+</html>
