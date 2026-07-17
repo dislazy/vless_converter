@@ -3,191 +3,763 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VLESS 转换为 Clash YAML 工具 (纯本地运行)</title>
+    <title>本地订阅转换工具</title>
     <style>
+        :root {
+            --bg: #f5f6f8;
+            --panel: #ffffff;
+            --text: #1f2937;
+            --muted: #667085;
+            --border: #d8dee8;
+            --primary: #0f766e;
+            --primary-dark: #115e59;
+            --danger: #b42318;
+            --code-bg: #14181f;
+            --code-text: #dce3ea;
+        }
+
+        * { box-sizing: border-box; }
+
         body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            max-width: 800px;
-            margin: 40px auto;
-            padding: 0 20px;
-            background-color: #f5f5f7;
-            color: #333;
         }
-        h2 { color: #1d1d1f; }
+
+        main {
+            width: min(1080px, calc(100% - 32px));
+            margin: 28px auto 48px;
+        }
+
+        h1 {
+            margin: 0 0 8px;
+            font-size: 28px;
+            line-height: 1.2;
+            letter-spacing: 0;
+        }
+
+        h2 {
+            margin: 0 0 12px;
+            font-size: 18px;
+            line-height: 1.35;
+            letter-spacing: 0;
+        }
+
+        .lead {
+            margin: 0 0 18px;
+            color: var(--muted);
+            line-height: 1.6;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(320px, 0.95fr);
+            gap: 16px;
+        }
+
         .card {
-            background: white;
-            padding: 24px;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-            margin-bottom: 20px;
-        }
-        textarea {
-            width: 100%;
-            height: 80px;
-            padding: 12px;
-            box-sizing: border-box;
-            border: 1px solid #d2d2d7;
+            background: var(--panel);
+            border: 1px solid rgba(31, 41, 55, 0.08);
             border-radius: 8px;
-            font-size: 14px;
-            resize: vertical;
+            padding: 18px;
+            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
         }
-        button {
-            background-color: #0071e3;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            font-size: 16px;
-            border-radius: 8px;
-            cursor: pointer;
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 140px minmax(0, 1fr);
+            gap: 12px;
+            align-items: start;
             margin-top: 12px;
         }
-        button:hover { background-color: #0077ed; }
-        pre {
-            background: #1e1e1e;
-            color: #d4d4d4;
-            padding: 16px;
-            border-radius: 8px;
-            overflow-x: auto;
-            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
-            font-size: 13px;
-            line-height: 1.5;
+
+        label {
+            padding-top: 10px;
+            font-size: 14px;
+            color: #374151;
+            font-weight: 650;
         }
-        .error { color: #ff3b30; font-weight: bold; margin-top: 10px; }
-        .hint { font-size: 12px; color: #86868b; margin-top: 4px; }
+
+        textarea,
+        input,
+        select {
+            width: 100%;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px 11px;
+            font: inherit;
+            color: var(--text);
+            background: #fff;
+        }
+
+        textarea {
+            min-height: 240px;
+            resize: vertical;
+            line-height: 1.5;
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+            font-size: 13px;
+        }
+
+        .hint {
+            margin-top: 6px;
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.45;
+        }
+
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 16px;
+        }
+
+        button {
+            border: 1px solid var(--primary);
+            background: var(--primary);
+            color: #fff;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font: inherit;
+            font-weight: 650;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: var(--primary-dark);
+            border-color: var(--primary-dark);
+        }
+
+        button.secondary {
+            background: #fff;
+            color: var(--primary);
+        }
+
+        button.secondary:hover {
+            background: #ecfdf5;
+        }
+
+        button.danger {
+            border-color: #f3b1aa;
+            background: #fff;
+            color: var(--danger);
+        }
+
+        .options {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px 12px;
+            margin-top: 8px;
+        }
+
+        .options label {
+            display: flex;
+            align-items: center;
+            padding: 0;
+            color: var(--text);
+            font-weight: 500;
+        }
+
+        .options input { width: auto; margin: 0 7px 0 0; }
+
+        pre {
+            min-height: 420px;
+            margin: 0;
+            padding: 14px;
+            overflow: auto;
+            border-radius: 8px;
+            background: var(--code-bg);
+            color: var(--code-text);
+            font: 13px/1.55 "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+        }
+
+        .message {
+            display: none;
+            margin-top: 12px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            line-height: 1.45;
+        }
+
+        .message.show { display: block; }
+        .message.error { background: #fef3f2; color: var(--danger); border: 1px solid #fecdca; }
+        .message.ok { background: #ecfdf3; color: #067647; border: 1px solid #abefc6; }
+        .summary { color: var(--muted); font-size: 13px; line-height: 1.55; margin-top: 10px; }
+
+        @media (max-width: 840px) {
+            main { width: min(100% - 20px, 1080px); margin-top: 18px; }
+            .grid { grid-template-columns: 1fr; }
+            .form-row { grid-template-columns: 1fr; gap: 6px; }
+            label { padding-top: 0; }
+            .options { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 <body>
+<main>
+    <h1>本地订阅转换工具</h1>
+    <p class="lead">纯浏览器本地解析，不请求任何后端。请粘贴节点链接、Base64 订阅内容或已经展开的订阅文本；如果只有一个订阅 URL，需要先在可信环境中取出订阅内容再粘贴。</p>
 
-<div class="card">
-    <h2>VLESS 转换为 Clash YAML 配置</h2>
-    <p class="hint">🔒 本工具完全由本地 JavaScript 运行，无任何网络请求，确保节点安全。</p>
-    <textarea id="inputUrl" placeholder="请粘贴形如 vless://... 的链接"></textarea>
-    <button onclick="convertUrl()">转换为 YAML</button>
-    <div id="errorMsg" class="error"></div>
-</div>
+    <div class="grid">
+        <section class="card">
+            <h2>输入</h2>
+            <div class="form-row">
+                <label for="inputText">订阅内容</label>
+                <div>
+                    <textarea id="inputText" placeholder="支持 ss://、ssr://、vmess://、vless://、trojan://、hysteria2://、hy2://、tuic://、socks://、socks5://、http://、https://。多个节点可每行一个，也可以粘贴 Base64 订阅内容。"></textarea>
+                    <div class="hint">HTTP/HTTPS 会优先按代理节点链接解析；普通订阅 URL 不会被拉取。</div>
+                </div>
+            </div>
 
-<div class="card">
-    <h3>输出内容 (可直接复制进 proxies 列表中)</h3>
-    <pre id="outputYaml">暂无数据</pre>
-</div>
+            <div class="form-row">
+                <label for="outputMode">输出格式</label>
+                <select id="outputMode">
+                    <option value="full">完整 Clash Verge / Clash.Meta 配置</option>
+                    <option value="proxies">仅 proxies 列表</option>
+                </select>
+            </div>
+
+            <div class="form-row">
+                <label>选项</label>
+                <div class="options">
+                    <label><input id="udpDefault" type="checkbox" checked>默认启用 UDP</label>
+                    <label><input id="skipCertDefault" type="checkbox">默认跳过证书验证</label>
+                    <label><input id="dedupeNames" type="checkbox" checked>自动处理重名</label>
+                    <label><input id="strictMode" type="checkbox">严格模式</label>
+                </div>
+            </div>
+
+            <div class="actions">
+                <button type="button" onclick="convertAll()">本地转换</button>
+                <button class="secondary" type="button" onclick="copyOutput()">复制结果</button>
+                <button class="danger" type="button" onclick="clearForm()">清空</button>
+            </div>
+
+            <div class="message error" id="errorMsg"></div>
+            <div class="message ok" id="okMsg"></div>
+            <div class="summary" id="summary"></div>
+        </section>
+
+        <section class="card">
+            <h2>输出</h2>
+            <pre id="output">暂无数据</pre>
+        </section>
+    </div>
+</main>
 
 <script>
-function convertUrl() {
-    const errorDiv = document.getElementById('errorMsg');
-    const outputPre = document.getElementById('outputYaml');
-    errorDiv.innerText = '';
-    outputPre.innerText = '暂无数据';
+const $ = (id) => document.getElementById(id);
 
-    const urlStr = document.getElementById('inputUrl').value.trim();
-    if (!urlStr) {
-        errorDiv.innerText = '请输入有效的 VLESS 链接';
+function convertAll() {
+    clearMessage();
+    const raw = $('inputText').value.trim();
+    if (!raw) {
+        showError('请先粘贴节点链接或订阅内容。');
         return;
     }
 
+    const nodes = expandInput(raw);
+    if (!nodes.length) {
+        showError('没有识别到可转换的节点。');
+        return;
+    }
+
+    const proxies = [];
+    const errors = [];
+    nodes.forEach((node, index) => {
+        try {
+            const proxy = parseNode(node, index + 1);
+            if (proxy) proxies.push(proxy);
+        } catch (error) {
+            errors.push({ node, message: error.message });
+            if ($('strictMode').checked) throw error;
+        }
+    });
+
+    if (!proxies.length) {
+        showError(errors.length ? `转换失败：${errors[0].message}` : '没有可输出的节点。');
+        $('output').textContent = '暂无数据';
+        return;
+    }
+
+    const named = $('dedupeNames').checked ? dedupeProxyNames(proxies) : proxies;
+    const yaml = $('outputMode').value === 'full' ? buildFullConfig(named) : yamlList('proxies', named, 0);
+    $('output').textContent = yaml;
+    $('summary').textContent = `成功转换 ${named.length} 个节点` + (errors.length ? `，跳过 ${errors.length} 个无法解析的条目。` : '。');
+    showOk('已完成本地转换。');
+}
+
+function expandInput(raw) {
+    const direct = splitNodes(raw);
+    const decoded = tryBase64Decode(raw);
+    if (decoded && decoded !== raw) {
+        const decodedNodes = splitNodes(decoded);
+        if (decodedNodes.length > direct.length) return decodedNodes;
+    }
+    return direct;
+}
+
+function splitNodes(text) {
+    const schemes = '(?:ssr|ss|vmess|vless|trojan|hysteria2|hy2|tuic|socks5|socks|https?|http)';
+    return text
+        .replace(new RegExp(`\\s+(${schemes})://`, 'gi'), '\n$1://')
+        .split(/\r?\n/)
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .filter((item) => new RegExp(`^${schemes}://`, 'i').test(item) || looksLikeBase64(item));
+}
+
+function parseNode(raw, fallbackIndex) {
+    const item = raw.trim();
+    if (/^vmess:\/\//i.test(item)) return parseVmess(item, fallbackIndex);
+    if (/^vless:\/\//i.test(item)) return parseVless(item, fallbackIndex);
+    if (/^trojan:\/\//i.test(item)) return parseTrojan(item, fallbackIndex);
+    if (/^ss:\/\//i.test(item)) return parseShadowsocks(item, fallbackIndex);
+    if (/^ssr:\/\//i.test(item)) return parseShadowsocksR(item, fallbackIndex);
+    if (/^(hysteria2|hy2):\/\//i.test(item)) return parseHysteria2(item, fallbackIndex);
+    if (/^tuic:\/\//i.test(item)) return parseTuic(item, fallbackIndex);
+    if (/^(socks5|socks):\/\//i.test(item)) return parseSocks(item, fallbackIndex);
+    if (/^https?:\/\//i.test(item)) return parseHttpProxy(item, fallbackIndex);
+
+    const decoded = tryBase64Decode(item);
+    if (decoded && decoded !== item) return parseNode(decoded, fallbackIndex);
+    throw new Error('不支持的节点格式。');
+}
+
+function parseVmess(raw, fallbackIndex) {
+    const payload = raw.replace(/^vmess:\/\//i, '');
+    const jsonText = tryBase64Decode(payload);
+    if (!jsonText) throw new Error('VMess Base64 解码失败。');
+    let data;
     try {
-        // 1. 解析 VLESS 基本结构
-        if (!urlStr.startsWith('vless://')) {
-            throw new Error('不合法的 VLESS 链接格式');
-        }
+        data = JSON.parse(jsonText);
+    } catch (error) {
+        throw new Error('VMess JSON 解析失败。');
+    }
 
-        // 分离别名
-        const parts = urlStr.replace('vless://', '').split('#');
-        const mainPart = parts[0];
-        const rawRemark = parts[1] || 'VLESS-Imported';
-        const remark = decodeURIComponent(rawRemark);
+    const proxy = {
+        name: data.ps || `VMess-${fallbackIndex}`,
+        type: 'vmess',
+        server: data.add,
+        port: toPort(data.port),
+        uuid: data.id,
+        alterId: Number(data.aid || 0),
+        cipher: data.scy || 'auto',
+        udp: $('udpDefault').checked
+    };
+    if (!proxy.server || !proxy.port || !proxy.uuid) throw new Error('VMess 缺少 server/port/uuid。');
+    if (truthy(data.tls)) proxy.tls = true;
+    if (data.sni || data.host) proxy.servername = data.sni || data.host;
+    if (data.fp) proxy['client-fingerprint'] = data.fp;
+    applyNetwork(proxy, data.net, {
+        path: data.path,
+        host: data.host,
+        serviceName: data.path || data.serviceName,
+        mode: data.mode
+    });
+    return proxy;
+}
 
-        // 分离用户凭证和网络地址
-        const atIndex = mainPart.lastIndexOf('@');
-        if (atIndex === -1) throw new Error('找不到 @ 符号，无法解析 UUID');
+function parseVless(raw, fallbackIndex) {
+    const parsed = parseStandardUrl(raw, 'vless');
+    const params = parsed.url.searchParams;
+    const network = params.get('type') || 'tcp';
+    const security = params.get('security') || 'none';
+    const proxy = {
+        name: parsed.name || `VLESS-${fallbackIndex}`,
+        type: 'vless',
+        server: parsed.host,
+        port: parsed.port,
+        uuid: parsed.username,
+        udp: $('udpDefault').checked,
+        network
+    };
+    if (!proxy.server || !proxy.port || !proxy.uuid) throw new Error('VLESS 缺少 server/port/uuid。');
+    if (security === 'tls' || security === 'reality') proxy.tls = true;
+    if (params.get('sni') || params.get('host')) proxy.servername = params.get('sni') || params.get('host');
+    if (params.get('flow') && params.get('flow') !== 'none') proxy.flow = params.get('flow');
+    if (security === 'reality') {
+        proxy['reality-opts'] = {};
+        if (params.get('pbk')) proxy['reality-opts']['public-key'] = params.get('pbk');
+        if (params.get('sid')) proxy['reality-opts']['short-id'] = params.get('sid');
+        proxy['client-fingerprint'] = params.get('fp') || 'chrome';
+    }
+    applyNetwork(proxy, network, {
+        path: params.get('path'),
+        host: params.get('host'),
+        serviceName: params.get('serviceName')
+    });
+    return proxy;
+}
 
-        const uuid = mainPart.substring(0, atIndex);
-        const remain = mainPart.substring(atIndex + 1);
+function parseTrojan(raw, fallbackIndex) {
+    const parsed = parseStandardUrl(raw, 'trojan');
+    const params = parsed.url.searchParams;
+    const network = params.get('type') || params.get('network');
+    const proxy = {
+        name: parsed.name || `Trojan-${fallbackIndex}`,
+        type: 'trojan',
+        server: parsed.host,
+        port: parsed.port,
+        password: parsed.username,
+        udp: $('udpDefault').checked,
+        'skip-cert-verify': readBool(params, 'allowInsecure') || readBool(params, 'skip-cert-verify') || $('skipCertDefault').checked
+    };
+    if (!proxy.server || !proxy.port || !proxy.password) throw new Error('Trojan 缺少 server/port/password。');
+    if (params.get('sni') || params.get('peer')) proxy.sni = params.get('sni') || params.get('peer');
+    if (network) applyNetwork(proxy, network, {
+        path: params.get('path'),
+        host: params.get('host'),
+        serviceName: params.get('serviceName')
+    });
+    return proxy;
+}
 
-        // 分离服务器端口与查询参数
-        const queryIndex = remain.indexOf('?');
-        if (queryIndex === -1) throw new Error('未发现核心配置参数');
+function parseShadowsocks(raw, fallbackIndex) {
+    const bodyWithHash = raw.replace(/^ss:\/\//i, '');
+    const [bodyAndQuery, hash = ''] = bodyWithHash.split('#');
+    const name = hash ? safeDecode(hash) : `SS-${fallbackIndex}`;
+    const body = bodyAndQuery.split('?')[0];
+    const query = bodyAndQuery.includes('?') ? bodyAndQuery.slice(bodyAndQuery.indexOf('?') + 1) : '';
 
-        const serverPortPart = remain.substring(0, queryIndex);
-        const queryPart = remain.substring(queryIndex + 1);
+    let userInfo;
+    let hostPort;
+    if (body.includes('@')) {
+        const atIndex = body.lastIndexOf('@');
+        userInfo = body.slice(0, atIndex);
+        hostPort = body.slice(atIndex + 1);
+        if (!userInfo.includes(':')) userInfo = tryBase64Decode(userInfo) || userInfo;
+    } else {
+        const decoded = tryBase64Decode(body);
+        if (!decoded || !decoded.includes('@')) throw new Error('SS 链接解析失败。');
+        const atIndex = decoded.lastIndexOf('@');
+        userInfo = decoded.slice(0, atIndex);
+        hostPort = decoded.slice(atIndex + 1);
+    }
 
-        const [server, port] = serverPortPart.split(':');
-        if (!server || !port) throw new Error('解析服务器 IP/域名 或端口失败');
+    const colonIndex = userInfo.indexOf(':');
+    if (colonIndex === -1) throw new Error('SS 缺少加密方法或密码。');
+    const method = userInfo.slice(0, colonIndex);
+    const password = userInfo.slice(colonIndex + 1);
+    const host = parseHostPort(hostPort);
+    const params = new URLSearchParams(query);
+    const proxy = {
+        name,
+        type: 'ss',
+        server: host.host,
+        port: host.port,
+        cipher: safeDecode(method),
+        password: safeDecode(password),
+        udp: $('udpDefault').checked
+    };
+    if (params.get('plugin')) proxy.plugin = safeDecode(params.get('plugin'));
+    if (params.get('plugin-opts')) proxy['plugin-opts'] = safeDecode(params.get('plugin-opts'));
+    return proxy;
+}
 
-        // 2. 解析 Query 参数
-        const params = new URLSearchParams(queryPart);
-        
-        const network = params.get('type') || 'tcp';
-        const security = params.get('security') || 'none';
-        const flow = params.get('flow');
-        const sni = params.get('sni') || params.get('host');
-        const pbk = params.get('pbk');
-        
-        // 自动去噪：优先使用合法的 sid，没有则放弃异常的 spx
-        let shortId = params.get('sid');
-        if (!shortId && params.get('spx')) {
-            const rawSpx = decodeURIComponent(params.get('spx'));
-            // 验证是否符合十六进制规范
-            if (/^[0-9a-fA-F]+$/.test(rawSpx)) {
-                shortId = rawSpx;
-            }
-        }
+function parseShadowsocksR(raw, fallbackIndex) {
+    const decoded = tryBase64Decode(raw.replace(/^ssr:\/\//i, ''));
+    if (!decoded) throw new Error('SSR Base64 解码失败。');
+    const [main, query = ''] = decoded.split('/?');
+    const parts = main.split(':');
+    if (parts.length < 6) throw new Error('SSR 字段不完整。');
+    const params = new URLSearchParams(query);
+    return {
+        name: params.get('remarks') ? safeDecodeBase64(params.get('remarks')) : `SSR-${fallbackIndex}`,
+        type: 'ssr',
+        server: parts[0],
+        port: toPort(parts[1]),
+        protocol: parts[2],
+        cipher: parts[3],
+        obfs: parts[4],
+        password: safeDecodeBase64(parts[5]),
+        'protocol-param': params.get('protoparam') ? safeDecodeBase64(params.get('protoparam')) : '',
+        'obfs-param': params.get('obfsparam') ? safeDecodeBase64(params.get('obfsparam')) : '',
+        udp: $('udpDefault').checked
+    };
+}
 
-        // 3. 构建 YAML 节点
-        let yaml = `  - name: "${remark}"\n`;
-        yaml += `    type: vless\n`;
-        yaml += `    server: ${server}\n`;
-        yaml += `    port: ${parseInt(port)}\n`;
-        yaml += `    uuid: ${uuid}\n`;
-        yaml += `    udp: true\n`;
+function parseHysteria2(raw, fallbackIndex) {
+    const normalized = raw.replace(/^hy2:\/\//i, 'hysteria2://');
+    const parsed = parseStandardUrl(normalized, 'hysteria2');
+    const params = parsed.url.searchParams;
+    const proxy = {
+        name: parsed.name || `Hysteria2-${fallbackIndex}`,
+        type: 'hysteria2',
+        server: parsed.host,
+        port: parsed.port,
+        password: parsed.username,
+        udp: $('udpDefault').checked,
+        'skip-cert-verify': readBool(params, 'insecure') || readBool(params, 'allowInsecure') || $('skipCertDefault').checked
+    };
+    if (params.get('sni')) proxy.sni = params.get('sni');
+    if (params.get('obfs')) proxy.obfs = params.get('obfs');
+    if (params.get('obfs-password')) proxy['obfs-password'] = params.get('obfs-password');
+    return proxy;
+}
 
-        if (security === 'tls' || security === 'reality') {
-            yaml += `    tls: true\n`;
-        }
-        if (sni) {
-            yaml += `    servername: ${sni}\n`;
-        }
-        if (flow && flow !== 'none') {
-            yaml += `    flow: ${flow}\n`;
-        }
-        if (network) {
-            yaml += `    network: ${network}\n`;
-        }
+function parseTuic(raw, fallbackIndex) {
+    const parsed = parseStandardUrl(raw, 'tuic');
+    const params = parsed.url.searchParams;
+    const [uuid, password = ''] = parsed.username.split(':');
+    const proxy = {
+        name: parsed.name || `TUIC-${fallbackIndex}`,
+        type: 'tuic',
+        server: parsed.host,
+        port: parsed.port,
+        uuid,
+        password,
+        udp: $('udpDefault').checked,
+        'skip-cert-verify': readBool(params, 'allow_insecure') || readBool(params, 'insecure') || $('skipCertDefault').checked
+    };
+    if (params.get('sni')) proxy.sni = params.get('sni');
+    if (params.get('congestion_control')) proxy['congestion-controller'] = params.get('congestion_control');
+    if (params.get('udp_relay_mode')) proxy['udp-relay-mode'] = params.get('udp_relay_mode');
+    if (params.get('alpn')) proxy.alpn = params.get('alpn').split(',');
+    return proxy;
+}
 
-        // 针对 WebSocket 的特殊配置
-        if (network === 'ws') {
-            const path = params.get('path') ? decodeURIComponent(params.get('path')) : '/';
-            yaml += `    ws-opts:\n`;
-            yaml += `      path: "${path}"\n`;
-            if (sni) {
-                yaml += `      headers:\n`;
-                yaml += `        Host: ${sni}\n`;
-            }
-        }
+function parseSocks(raw, fallbackIndex) {
+    const parsed = parseStandardUrl(raw.replace(/^socks:\/\//i, 'socks5://'), 'socks5');
+    const proxy = {
+        name: parsed.name || `SOCKS5-${fallbackIndex}`,
+        type: 'socks5',
+        server: parsed.host,
+        port: parsed.port,
+        udp: $('udpDefault').checked
+    };
+    if (parsed.username) proxy.username = parsed.username;
+    if (parsed.password) proxy.password = parsed.password;
+    return proxy;
+}
 
-        // 针对 gRPC 的特殊配置
-        if (network === 'grpc') {
-            const serviceName = params.get('serviceName') || '';
-            yaml += `    grpc-opts:\n`;
-            yaml += `      grpc-service-name: "${serviceName}"\n`;
-        }
+function parseHttpProxy(raw, fallbackIndex) {
+    const parsed = parseStandardUrl(raw, raw.toLowerCase().startsWith('https://') ? 'https' : 'http');
+    if (!parsed.url.port) {
+        throw new Error('HTTP/HTTPS 代理节点需要显式端口；普通订阅 URL 不会被本地页面拉取。');
+    }
+    const proxy = {
+        name: parsed.name || `HTTP-${fallbackIndex}`,
+        type: 'http',
+        server: parsed.host,
+        port: parsed.port,
+        tls: parsed.url.protocol === 'https:'
+    };
+    if (parsed.username) proxy.username = parsed.username;
+    if (parsed.password) proxy.password = parsed.password;
+    return proxy;
+}
 
-        // 针对 REALITY 的配置和智能去噪
-        if (security === 'reality') {
-            yaml += `    reality-opts:\n`;
-            if (pbk) yaml += `      public-key: ${pbk}\n`;
-            if (shortId) yaml += `      short-id: "${shortId}"\n`;
-            
-            const fp = params.get('fp') || 'chrome';
-            yaml += `    client-fingerprint: ${fp}\n`;
-        }
-
-        outputPre.innerText = yaml;
-
-    } catch (e) {
-        errorDiv.innerText = '解析错误: ' + e.message;
+function applyNetwork(proxy, network, data) {
+    if (!network || network === 'tcp') return;
+    proxy.network = network;
+    if (network === 'ws') {
+        proxy['ws-opts'] = { path: data.path ? safeDecode(data.path) : '/' };
+        if (data.host) proxy['ws-opts'].headers = { Host: data.host };
+    }
+    if (network === 'grpc') {
+        proxy['grpc-opts'] = { 'grpc-service-name': data.serviceName ? safeDecode(data.serviceName) : '' };
+    }
+    if (network === 'h2' || network === 'http') {
+        proxy['h2-opts'] = {};
+        if (data.host) proxy['h2-opts'].host = [data.host];
+        if (data.path) proxy['h2-opts'].path = safeDecode(data.path);
     }
 }
-</script>
 
+function parseStandardUrl(raw, expectedScheme) {
+    let url;
+    try {
+        url = new URL(raw);
+    } catch (error) {
+        throw new Error(`${expectedScheme} URL 解析失败。`);
+    }
+    return {
+        url,
+        name: url.hash ? safeDecode(url.hash.slice(1)) : '',
+        host: url.hostname,
+        port: url.port ? toPort(url.port) : 0,
+        username: safeDecode(url.username),
+        password: safeDecode(url.password)
+    };
+}
+
+function parseHostPort(value) {
+    const match = value.match(/^\[([^\]]+)\]:(\d+)$/);
+    if (match) return { host: match[1], port: toPort(match[2]) };
+    const index = value.lastIndexOf(':');
+    if (index === -1) throw new Error('缺少端口。');
+    return { host: value.slice(0, index), port: toPort(value.slice(index + 1)) };
+}
+
+function buildFullConfig(proxies) {
+    const groupName = '🚀 节点选择';
+    const names = proxies.map((proxy) => proxy.name);
+    return [
+        '# Clash Verge / Clash.Meta 专用配置文件',
+        'port: 7890',
+        'allow-lan: true',
+        'mode: rule',
+        'log-level: info',
+        'ipv6: false',
+        'external-controller: 127.0.0.1:9090',
+        '',
+        '# 代理节点配置',
+        yamlList('proxies', proxies, 0),
+        '',
+        '# 策略组',
+        'proxy-groups:',
+        `  - name: ${groupName}`,
+        '    type: select',
+        '    proxies:',
+        ...names.map((name) => `      - ${yamlQuotedString(name)}`),
+        '      - DIRECT',
+        '',
+        '# 基础分流规则',
+        'rules:',
+        '  - GEOIP,CN,DIRECT,no-resolve',
+        '  - GEOIP,LAN,DIRECT',
+        `  - MATCH,${groupName}`
+    ].join('\n');
+}
+
+function yamlList(key, items, indent) {
+    const pad = ' '.repeat(indent);
+    const lines = [`${pad}${key}:`];
+    items.forEach((item) => lines.push(...yamlObject(item, indent + 2, true)));
+    return lines.join('\n');
+}
+
+function yamlObject(obj, indent, asListItem = false) {
+    const pad = ' '.repeat(indent);
+    const lines = [];
+    Object.entries(obj).forEach(([key, value], index) => {
+        const prefix = asListItem && index === 0 ? `${pad}- ` : `${pad}  `;
+        if (isPlainObject(value)) {
+            lines.push(`${prefix}${key}:`);
+            lines.push(...yamlObject(value, indent + 2, false));
+        } else if (Array.isArray(value)) {
+            lines.push(`${prefix}${key}:`);
+            value.forEach((item) => lines.push(`${' '.repeat(indent + 4)}- ${yamlScalar(item)}`));
+        } else if (value !== undefined && value !== null && value !== '') {
+            lines.push(`${prefix}${key}: ${key === 'name' ? yamlQuotedString(value) : yamlScalar(value)}`);
+        }
+    });
+    return lines;
+}
+
+function yamlScalar(value) {
+    if (typeof value === 'number') return String(value);
+    if (typeof value === 'boolean') return value ? 'true' : 'false';
+    const str = String(value);
+    if (/^[A-Za-z0-9_.:/@+-]+$/.test(str) && !['true', 'false', 'null'].includes(str)) return str;
+    return yamlQuotedString(str);
+}
+
+function yamlQuotedString(value) {
+    const str = String(value);
+    return `"${str.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
+function dedupeProxyNames(proxies) {
+    const counts = new Map();
+    return proxies.map((proxy) => {
+        const base = proxy.name || `${proxy.type}-${proxy.server}`;
+        const count = counts.get(base) || 0;
+        counts.set(base, count + 1);
+        return { ...proxy, name: count ? `${base} ${count + 1}` : base };
+    });
+}
+
+function tryBase64Decode(value) {
+    const cleaned = value.trim().replace(/\s/g, '').replace(/-/g, '+').replace(/_/g, '/');
+    if (!cleaned || cleaned.length < 4) return '';
+    try {
+        const padded = cleaned + '='.repeat((4 - cleaned.length % 4) % 4);
+        const binary = atob(padded);
+        const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+        return new TextDecoder().decode(bytes);
+    } catch (error) {
+        return '';
+    }
+}
+
+function safeDecodeBase64(value) {
+    return safeDecode(tryBase64Decode(value) || value);
+}
+
+function safeDecode(value) {
+    try {
+        return decodeURIComponent(String(value));
+    } catch (error) {
+        return String(value);
+    }
+}
+
+function toPort(value) {
+    const port = Number(value);
+    if (!Number.isInteger(port) || port <= 0 || port > 65535) throw new Error(`端口不合法：${value}`);
+    return port;
+}
+
+function readBool(params, name) {
+    const value = params.get(name);
+    return value === '1' || value === 'true';
+}
+
+function truthy(value) {
+    return value === true || value === 'tls' || value === '1' || value === 'true';
+}
+
+function looksLikeBase64(value) {
+    return /^[A-Za-z0-9+/_=-]{16,}$/.test(value.trim());
+}
+
+function isPlainObject(value) {
+    return value && typeof value === 'object' && !Array.isArray(value);
+}
+
+async function copyOutput() {
+    const value = $('output').textContent.trim();
+    if (!value || value === '暂无数据') {
+        showError('没有可复制的输出。');
+        return;
+    }
+    try {
+        await navigator.clipboard.writeText(value);
+        showOk('已复制。');
+    } catch (error) {
+        showError('复制失败，请手动选中输出内容复制。');
+    }
+}
+
+function clearForm() {
+    $('inputText').value = '';
+    $('output').textContent = '暂无数据';
+    $('summary').textContent = '';
+    clearMessage();
+}
+
+function showError(text) {
+    $('okMsg').classList.remove('show');
+    $('errorMsg').textContent = text;
+    $('errorMsg').classList.add('show');
+}
+
+function showOk(text) {
+    $('errorMsg').classList.remove('show');
+    $('okMsg').textContent = text;
+    $('okMsg').classList.add('show');
+}
+
+function clearMessage() {
+    $('errorMsg').classList.remove('show');
+    $('okMsg').classList.remove('show');
+}
+</script>
 </body>
 </html>
